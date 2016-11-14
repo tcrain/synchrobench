@@ -116,6 +116,8 @@ public class VersionedTower extends AbstractCompositionalIntSet {
         Tower foundTower = null;
 
         retryFromTraverse: while(true) {
+        	towerToInsert = null;
+            foundTower = null;
             /* traverse the skiplist */
             foundTower = traverse(val, prevs);
 
@@ -324,6 +326,20 @@ public class VersionedTower extends AbstractCompositionalIntSet {
     }
 
     private int getRandomHeight() {
-        return Math.min(TOP, RandomLevelGenerator.randomLevel());
+        return Math.max(1,Math.min(TOP, RandomLevelGenerator.randomLevel()));
     }
+    
+    void print() {
+    	System.out.println("skiplist:");
+    	for(int i = MAX_HEIGHT -1; i >= 0; i--) {
+    		Tower next = head;
+    		while(next != tail) {
+    			System.out.print(next.val + "-- ");
+    			next = next.nexts.get(i);
+    		}
+    		System.out.println();
+    	}
+    	System.out.println();
+    }
+    
 }

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<jardesc>
+    <jar path="synchrobench/bench1.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/synchrobench/outputjar.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" mainClassHandleIdentifier="=synchrobench/java\/src&lt;contention.benchmark{Test.java[Test" manifestLocation="" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.lockfree{JavaSkiplist.java"/>
+        <file path="/synchrobench/README.md"/>
+        <file path="/synchrobench/VERSIONS"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;org"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.sequential"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.versioned"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.abstractions{CompositionalMap.java"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.lockfree{JavaIntSkipList.java"/>
+        <file path="/synchrobench/.gitignore"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.abstractions{MaintenanceAlg.java"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.transactional"/>
+        <file path="/synchrobench/.project"/>
+        <file path="/synchrobench/.classpath"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.benchmark"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.abstractions{CompositionalIntMapSet.java"/>
+        <file path="/synchrobench/AUTHORS"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.abstractions{AbstractCompositionalIntSet.java"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;contention.abstractions{CompositionalIntSet.java"/>
+        <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.lockfree{ThreadLocalRandom.java"/>
+    </selectedElements>
+</jardesc>
