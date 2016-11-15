@@ -2,7 +2,7 @@ package skiplists.versioned;
 
 import contention.abstractions.AbstractCompositionalIntSet;
 
-public class VersionedTower2 extends AbstractCompositionalIntSet {
+public class VersionedTowerCG extends AbstractCompositionalIntSet {
 
     private final Tower2 head;
     private final Tower2 tail;
@@ -10,6 +10,8 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
     private static final int MAX_HEIGHT = 22; // TODO: use variable max height selection
     private static final int TOP = MAX_HEIGHT - 1;
 
+    private static final int TOP_LOCK = 5;
+    
     private static final int OK = 0;
     private static final int ABORT = 1;
     
@@ -20,7 +22,7 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
 		}
 	};
 
-    public VersionedTower2() {
+    public VersionedTowerCG() {
 
         tail = new Tower2(Integer.MAX_VALUE, MAX_HEIGHT, MAX_HEIGHT);
         head = new Tower2(Integer.MIN_VALUE, MAX_HEIGHT, MAX_HEIGHT);
@@ -42,6 +44,8 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
         Tower2 curr = null;
         Tower2 found = null;
 
+        //print();
+        
         /* traverse down the levels of the skiplist */
         for (int level = TOP; level >= 0; level--) {
         	prev.getVersion();
@@ -96,6 +100,42 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
         return prevVer;
     }
 
+    private boolean tryInsertUpToLevel(Tower2[] prev, Tower2 towerToInsert) {
+        int validVer;
+        int[] state = { OK };
+        int maxLevel = towerToInsert.nexts.length - 1;
+        do {
+            /* pre-locking validation */
+        	
+            validVer = validateInsert(prev[TOP_LOCK], towerToInsert, TOP_LOCK, state);
+            if (state[0] == ABORT) {
+                return false;
+            }
+            
+            for(int j = TOP_LOCK - 1; j >= 0; j--) {
+            	validateInsert(prev[j], towerToInsert, j, state);
+            	if (state[0] == ABORT) {
+            		return false;
+            	}
+            }
+
+        /* try-lock prev */
+        } while (!prev[TOP_LOCK].tryLockAtVersion(validVer));
+
+        int topUpdate = Math.min(maxLevel, TOP_LOCK);
+        for(int i = 0; i <= topUpdate; i++) {
+        	Tower2[] prevNexts = prev[i].nexts;
+        	/* set towerToInsert's next */
+        	towerToInsert.nexts[i] = prevNexts[i];
+
+        	/* update prev's next */
+        	prevNexts[i] = towerToInsert; /* linearization point when level = 0 */
+        }
+    	prev[TOP_LOCK].unlockAndIncrementVersion();
+        return true;
+    }
+
+    
     private boolean tryInsertAtLevel(Tower2 prev, Tower2 towerToInsert, int level) {
         int validVer;
         int[] state = { OK };
@@ -127,8 +167,6 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
         Tower2 foundTower = null;
 
         retryFromTraverse: while(true) {
-        	towerToInsert = null;
-            foundTower = null;
             /* traverse the skiplist */
             foundTower = traverse(val, prevs);
 
@@ -155,13 +193,20 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
 
             /* insert at each level */
             int level = 0;
+            boolean result;
             while (level < towerToInsert.nexts.length) {
-                if (tryInsertAtLevel(prevs[level], towerToInsert, level)) {
-                    /* insert has succeeded at this level */
-                    level++;
-
-                /* re-traverse and try again with updated prevs */
-                } else {
+            	if(level == 0) {
+            		if(result = tryInsertUpToLevel(prevs, towerToInsert)) {
+            			level = TOP_LOCK + 1;
+            		}
+            	} else {
+            		if(result = tryInsertAtLevel(prevs[level], towerToInsert, level)) {
+            				/* insert has succeeded at this level */
+            				level++;
+            		}
+            	}
+            	if(!result) {
+            		/* re-traverse and try again with updated prevs */
                     /* race: aborting at level zero might mean another thread inserted first */
                     if (level == 0){
                         continue retryFromTraverse;
@@ -206,6 +251,43 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
 
     }
 
+    private boolean tryRemoveUpToLevel(Tower2[] prev, Tower2 towerToRemove) {
+        int validVer = 0, tmpValidVer;
+        int[] state = { OK };
+        int level = Math.min(TOP_LOCK, towerToRemove.nexts.length - 1);
+        do {
+        	for(int i = TOP_LOCK; i >= 0; i --) {
+        		/* pre-locking validation */
+        		if(level < i) {
+        			tmpValidVer = validateInsert(prev[i], towerToRemove, i, state);
+        			if (state[0] == ABORT) {
+        				return false;
+        			}
+        		} else {
+        			tmpValidVer = validateRemove(prev[i], towerToRemove, i, state);
+        			if (state[0] == ABORT) {
+        				return false;
+        			}
+        		}
+        		if(i == TOP_LOCK) {
+        			validVer = tmpValidVer;
+        		}
+        	}
+        /* try-lock prev */
+        } while (!prev[TOP_LOCK].tryLockAtVersion(validVer));
+
+        for(int j = level; j >= 0; j--) {
+        	/* update prev to skip over towerToRemove*/
+        	prev[j].nexts[j] = towerToRemove.nexts[j]; /* linearization point when level = 0 */
+        }
+        
+        /* mark tower as being deleted */
+        towerToRemove.status = 2;
+        
+        prev[TOP_LOCK].unlockAndIncrementVersion();
+        return true;
+    }
+    
     private boolean tryRemoveAtLevel(Tower2 prev, Tower2 towerToRemove, int level) {
         int validVer;
         int[] state = { OK };
@@ -250,30 +332,36 @@ public class VersionedTower2 extends AbstractCompositionalIntSet {
                 return false;
             }
 
-            /* try-lock tower */
-            if (!foundTower.tryLockAtVersion(validVer)) {
-                continue retryFromTraverse;
-            }
+            //if(foundTower.nexts.length - 1 >= TOP_LOCK) {
+            	/* try-lock tower */
+            	if (!foundTower.tryLockAtVersion(validVer)) {
+            		continue retryFromTraverse;
+            	}
+            //}
 
             break retryFromTraverse;
         }
 
         /* remove at each level */
         int level = (foundTower.nexts.length-1);
+        boolean result;
         while (level >= 0) {
-            if (tryRemoveAtLevel(prevs[level], foundTower, level)) {
-                /* remove has succeeded at this level */
-                level--;
-
-            /* re-traverse and try again with updated prevs */
-            } else {
+        	if(level > TOP_LOCK) {
+        		if (result = tryRemoveAtLevel(prevs[level], foundTower, level)) {
+        			/* remove has succeeded at this level */
+        			level--;
+        		}
+        	} else {
+        		if(result = tryRemoveUpToLevel(prevs, foundTower)) {
+        			level = -1;
+        		}
+        	}
+        	if(!result) {	
+                /* re-traverse and try again with updated prevs */
                 /* re-traverse to update list of prevs */
                 traverse(val, prevs);
             }
         }
-
-        /* mark tower as being deleted */
-        foundTower.status = 2;
 
         /* no need to unlock tower as it is fully unlinked */
         //foundTower.unlockAndIncrementVersion();

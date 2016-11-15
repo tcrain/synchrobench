@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
+import skiplists.lockfree.ThreadLocalRandom;
+
 public class RandomLevelGenerator {
     /**
      * Generates the initial random seed for the cheaper per-instance random number generators used in randomLevel.
@@ -25,10 +27,11 @@ public class RandomLevelGenerator {
      * high-quality generator but is acceptable here.
      */
     public static int randomLevel() {
-        int x = randomSeed;
-        x ^= x << 13;
-        x ^= x >>> 17;
-        randomSeed = x ^= x << 5;
+        //int x = randomSeed;
+        //x ^= x << 13;
+        //x ^= x >>> 17;
+        //randomSeed = x ^= x << 5;
+    	int x = ThreadLocalRandom.nextSecondarySeed();
         if ((x & 0x80000001) != 0) // test highest and lowest bits
             return 0;
         int level = 1;

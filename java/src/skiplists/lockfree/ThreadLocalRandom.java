@@ -562,7 +562,7 @@ public class ThreadLocalRandom extends Random {
     /**
      * Returns the pseudo-randomly initialized or updated secondary seed.
      */
-    static final int nextSecondarySeed() {
+    public static final int nextSecondarySeed() {
         int r;
         Thread t = Thread.currentThread();
         if ((r = UNSAFE.getInt(t, SECONDARY)) != 0) {
