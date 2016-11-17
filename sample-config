@@ -1,6 +1,6 @@
-skiplists.versioned.VersionedTowerCG skiplists.versioned.VersionedTower2
-2
-bench1.jar
-4000 10000
-4 8
+skiplists.versioned.VersionedTowerCG
+5
+bench/benchCG1.jar bench/benchCG2.jar bench/benchCG3.jar bench/benchCG5.jar bench/benchCG10.jar bench/benchCGTOP.jar
+50000 100000 200000
+64 32 16 8 4 2
 output.txt

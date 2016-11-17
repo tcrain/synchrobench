@@ -10,7 +10,7 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
     private static final int MAX_HEIGHT = 22; // TODO: use variable max height selection
     private static final int TOP = MAX_HEIGHT - 1;
 
-    private static final int TOP_LOCK = 5;
+    private static final int TOP_LOCK = TOP;
     
     private static final int OK = 0;
     private static final int ABORT = 1;
@@ -48,14 +48,18 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
         
         /* traverse down the levels of the skiplist */
         for (int level = TOP; level >= 0; level--) {
-        	prev.getVersion();
+        	//if(level >= TOP_LOCK) {
+        		prev.getVersion();
+        	//}
             curr = prev.nexts[level];
 
             /* traverse at the current level */
             while (curr.val < val) {
                 prev = curr;
                 curr = curr.nexts[level];
-                curr.getVersion();
+                //if(level > TOP_LOCK) {
+                	curr.getVersion();
+                //}
             }
 
             /* record prevs at each level */
@@ -240,7 +244,7 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
         }
 
         /* if prev is not pointing to the tower at the current level */
-        if(prev.nexts[level].val != towerToRemove.val) {
+        if(prev.nexts[level] != towerToRemove) {
             state[0] = ABORT;
             return 0;
         }
@@ -300,6 +304,9 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
 
         /* try-lock prev */
         } while (!prev.tryLockAtVersion(validVer));
+        
+        /* mark tower as being deleted */
+        towerToRemove.status = 2;
 
         /* update prev to skip over towerToRemove*/
         prev.nexts[level] = towerToRemove.nexts[level]; /* linearization point when level = 0 */
@@ -312,61 +319,71 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
     public boolean removeInt(int val) {
         Tower2[] prevs = thdLocalPrevArray.get();
         Tower2 foundTower = null;
+        boolean removeStarted = false, locked = false;;
 
-        retryFromTraverse: while(true) {
-            /* traverse the skiplist */
-            foundTower = traverse(val, prevs);
+        retryAfterTraverse: while(true) {
+        	retryFromTraverse: while(true) {
+        		/* traverse the skiplist */
+        		foundTower = traverse(val, prevs);
 
-            /* val is not found, so remove fails */
-            if (foundTower == null) {
-                return false;
-            }
-
-            /* pre-lock validation */
-            int validVer = foundTower.getVersion();
-
-            /* found tower is already being removed, or is not fully inserted */
-            if (foundTower.status != 1) {
-                /* insert linearizes at the start thus blocks concurrent removes */
-                /* remove linearizes at the end thus blocks concurrent removes */
-                return false;
-            }
-
-            //if(foundTower.nexts.length - 1 >= TOP_LOCK) {
-            	/* try-lock tower */
-            	if (!foundTower.tryLockAtVersion(validVer)) {
-            		continue retryFromTraverse;
-            	}
-            //}
-
-            break retryFromTraverse;
-        }
-
-        /* remove at each level */
-        int level = (foundTower.nexts.length-1);
-        boolean result;
-        while (level >= 0) {
-        	if(level > TOP_LOCK) {
-        		if (result = tryRemoveAtLevel(prevs[level], foundTower, level)) {
-        			/* remove has succeeded at this level */
-        			level--;
+        		/* val is not found, so remove fails */
+        		if (foundTower == null) {
+        			return false;
         		}
-        	} else {
-        		if(result = tryRemoveUpToLevel(prevs, foundTower)) {
-        			level = -1;
+
+        		/* pre-lock validation */
+        		int validVer = foundTower.getVersion();
+
+        		/* found tower is already being removed, or is not fully inserted */
+        		if (foundTower.status != 1) {
+        			/* insert linearizes at the start thus blocks concurrent removes */
+        			/* remove linearizes at the end thus blocks concurrent removes */
+        			return false;
         		}
+
+        		if(foundTower.nexts.length - 1 >= TOP_LOCK) {
+        			/* try-lock tower */
+        			if (!foundTower.tryLockAtVersion(validVer)) {
+        				continue retryFromTraverse;
+        			} else {
+        				locked = true;
+        			}
+        		}
+
+        		break retryFromTraverse;
         	}
-        	if(!result) {	
-                /* re-traverse and try again with updated prevs */
-                /* re-traverse to update list of prevs */
-                traverse(val, prevs);
-            }
+
+        	/* remove at each level */
+        	int level = (foundTower.nexts.length-1);
+        	boolean result;
+        	while (level >= 0) {
+        		if(level > TOP_LOCK) {
+        			if (result = tryRemoveAtLevel(prevs[level], foundTower, level)) {
+        				/* remove has succeeded at this level */
+        				level--;
+        			}
+        		} else {
+        			if(result = tryRemoveUpToLevel(prevs, foundTower)) {
+        				level = -1;
+        			}
+        		}
+        		if(!result) {	
+        			/* re-traverse and try again with updated prevs */
+        			/* re-traverse to update list of prevs */
+        			if(!removeStarted && !locked) {
+        				continue retryAfterTraverse;
+        			}
+        			traverse(val, prevs);
+        		} else {
+        			removeStarted = true;
+        		}
+        	
+        	}
+
+        	/* no need to unlock tower as it is fully unlinked */
+        	//foundTower.unlockAndIncrementVersion();
+        	return true;
         }
-
-        /* no need to unlock tower as it is fully unlinked */
-        //foundTower.unlockAndIncrementVersion();
-
-        return true;
 
     }
 
@@ -379,14 +396,18 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
 
         /* traverse down the levels of the skiplist */
         for (int level = TOP; level >= 0; level--) {
-        	prev.getVersion();
+        	if(level >= TOP_LOCK) {
+        		prev.getVersion();
+        	}
             curr = prev.nexts[level];
 
             /* traverse at the current level */
             while (curr.val < val) {
                 prev = curr;
                 curr = curr.nexts[level];
-                curr.getVersion();
+                if(level > TOP_LOCK) {
+                	curr.getVersion();
+                }
             }
 
             /* if val is found at the current level */
