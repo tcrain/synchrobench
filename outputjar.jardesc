@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <jardesc>
-    <jar path="synchrobench/bench1.jar"/>
+    <jar path="synchrobench/benchCGTOP.jar"/>
     <options buildIfNeeded="true" compress="true" descriptionLocation="/synchrobench/outputjar.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
     <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
     <selectedProjects/>
@@ -12,8 +12,8 @@
     </manifest>
     <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
         <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.lockfree{JavaSkiplist.java"/>
-        <file path="/synchrobench/README.md"/>
         <file path="/synchrobench/VERSIONS"/>
+        <file path="/synchrobench/README.md"/>
         <javaElement handleIdentifier="=synchrobench/java\/src&lt;org"/>
         <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.sequential"/>
         <javaElement handleIdentifier="=synchrobench/java\/src&lt;skiplists.versioned"/>
