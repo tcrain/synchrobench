@@ -30,7 +30,7 @@ public class RandomLevelGenerator {
         x ^= x >>> 17;
         randomSeed = x ^= x << 5;
         if ((x & 0x80000001) != 0) // test highest and lowest bits
-            return 0;
+            return 1;
         int level = 1;
         while (((x >>>= 1) & 1) != 0)
             ++level;
