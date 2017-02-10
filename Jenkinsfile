@@ -3,6 +3,7 @@ node{
         deleteDir()
         dir("release") {
             git "https://github.com/harrisonrodgers/synchrobench.git"
+            sh "git checkout versioned_tower_skiplist"
         }
         sh "cp -r release debug"
     }
