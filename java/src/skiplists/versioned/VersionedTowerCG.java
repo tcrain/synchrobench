@@ -448,7 +448,8 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
     }
 
     private int getRandomHeight() {
-        return Math.max(1,Math.min(TOP, RandomLevelGenerator.randomLevel()));
+        /* height from 1 to TOP */
+        return Math.min(TOP, (skiplists.RandomLevelGenerator.randomLevel() + 1));
     }
     
     void print() {

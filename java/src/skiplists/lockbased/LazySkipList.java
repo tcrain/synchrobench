@@ -45,7 +45,7 @@ public final class LazySkipList implements CompositionalIntSet {
     }
 
     public LazySkipList() {
-        this(31);
+        this(22);
     }
 
     public LazySkipList(final int maxLevel) {
@@ -59,10 +59,24 @@ public final class LazySkipList implements CompositionalIntSet {
 
     @Override
     public boolean containsInt(final int value) {
-        Node[] preds = (Node[]) new Node[maxLevel + 1];
-        Node[] succs = (Node[]) new Node[maxLevel + 1];
-        int levelFound = find(value, preds, succs);
-        return (levelFound != -1 && succs[levelFound].fullyLinked && !succs[levelFound].marked);
+        int key = value;
+        int levelFound = -1;
+        Node pred = head;
+        Node curr = pred;
+
+        for (int level = maxLevel; level >= 0; level--) {
+            curr = pred.next[level];
+
+            while (key > curr.key) {
+                pred = curr;
+                curr = pred.next[level];
+            }
+
+            if (levelFound == -1 && key == curr.key) {
+                levelFound = level;
+            }
+        }
+        return  (levelFound != -1 && curr.fullyLinked && !curr.marked);        
     }
 
     /* The preds[] and succs[] arrays are filled from the maximum level to 0 with the predecessor and successor references for the given key. */
