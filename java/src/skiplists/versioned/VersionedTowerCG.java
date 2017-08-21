@@ -335,11 +335,15 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
         		int validVer = foundTower.getVersion();
 
         		/* found tower is already being removed, or is not fully inserted */
-        		if (foundTower.status != 1) {
-        			/* insert linearizes at the start thus blocks concurrent removes */
-        			/* remove linearizes at the end thus blocks concurrent removes */
-        			return false;
-        		}
+                int status;
+                status = foundTower.status;
+                if (status == 2) {
+                    /* insert linearizes at the start thus blocks concurrent removes */
+                    /* remove linearizes at the end thus blocks concurrent removes */
+                    return false;
+                } else if(status == 0) {
+                	continue retryFromTraverse;
+                }
 
         		if(foundTower.nexts.length - 1 >= TOP_LOCK) {
         			/* try-lock tower */

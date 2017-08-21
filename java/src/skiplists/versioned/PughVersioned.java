@@ -314,15 +314,15 @@ public class PughVersioned extends AbstractCompositionalIntSet {
 			/*
 			 * found tower is already being removed, or is not fully inserted
 			 */
-			if (foundTower.status != 1) {
-				/*
-				 * insert linearizes at the start thus blocks concurrent removes
-				 */
-				/*
-				 * remove linearizes at the end thus blocks concurrent removes
-				 */
-				return false;
-			}
+            int status;
+            status = foundTower.status;
+            if (status == 2) {
+                /* insert linearizes at the start thus blocks concurrent removes */
+                /* remove linearizes at the end thus blocks concurrent removes */
+                return false;
+            } else if(status == 0) {
+            	continue;
+            }
 			// if (prev.nexts.get(0) != foundTower || prev.status != 1) {
 			// continue;
 			// }

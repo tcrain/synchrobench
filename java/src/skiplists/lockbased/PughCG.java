@@ -232,51 +232,64 @@ public class PughCG extends AbstractCompositionalIntSet {
 	public boolean removeInt(int val) {
 		Tower[] prevs = new Tower[MAX_HEIGHT];
 		Tower foundTower = null;
+		while (true) {
+			/* traverse the skiplist */
+			foundTower = traverse(val, prevs);
 
-		/* traverse the skiplist */
-		foundTower = traverse(val, prevs);
-
-		/* val is not found, so remove fails */
-		if (foundTower == null) {
-			return false;
-		}
-		try {
-
-			/* pre-lock validation */
-			foundTower.lock();
-
-			/* found tower is already being removed, or is not fully inserted */
-			if (foundTower.status != 1) {
-				/* insert linearizes at the start thus blocks concurrent removes */
-				/* remove linearizes at the end thus blocks concurrent removes */
+			/* val is not found, so remove fails */
+			if (foundTower == null) {
 				return false;
 			}
+			try {
 
-			/* remove at each level */
-			int level = (foundTower.height - 1);
-			while (level >= 0) {
-				if (tryRemoveAtLevel(prevs[level], foundTower, level)) {
-					/* remove has succeeded at this level */
-					level--;
+				/* pre-lock validation */
+				foundTower.lock();
 
-					/* re-traverse and try again with updated prevs */
-				} else {
-					/* re-traverse to update list of prevs */
-					traverse(val, prevs);
+				/*
+				 * found tower is already being removed, or is not fully
+				 * inserted
+				 */
+				int status;
+				status = foundTower.status;
+				if (status == 2) {
+					/*
+					 * insert linearizes at the start thus blocks concurrent
+					 * removes
+					 */
+					/*
+					 * remove linearizes at the end thus blocks concurrent
+					 * removes
+					 */
+					return false;
+				} else if (status == 0) {
+					continue;
 				}
+
+				/* remove at each level */
+				int level = (foundTower.height - 1);
+				while (level >= 0) {
+					if (tryRemoveAtLevel(prevs[level], foundTower, level)) {
+						/* remove has succeeded at this level */
+						level--;
+
+						/* re-traverse and try again with updated prevs */
+					} else {
+						/* re-traverse to update list of prevs */
+						traverse(val, prevs);
+					}
+				}
+
+				/* mark tower as being deleted */
+				foundTower.status = 2;
+
+				/* no need to unlock tower as it is fully unlinked */
+				// foundTower.unlockAndIncrementVersion();
+
+				return true;
+			} finally {
+				foundTower.unlock();
 			}
-
-			/* mark tower as being deleted */
-			foundTower.status = 2;
-
-			/* no need to unlock tower as it is fully unlinked */
-			// foundTower.unlockAndIncrementVersion();
-
-			return true;
-		} finally {
-			foundTower.unlock();
 		}
-
 	}
 
 	/*

@@ -140,7 +140,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 			prev.nextLocks[level].unlock();
 		}
 	}
-	
+
 	@Override
 	public boolean addInt(int val) {
 		TowerFG[] prevs = new TowerFG[MAX_HEIGHT];
@@ -258,12 +258,10 @@ public class Pugh extends AbstractCompositionalIntSet {
 			}
 
 			/* update prev to skip over towerToRemove */
-			prev.nexts.set(level, towerToRemove.nexts.get(level)); /*
-																	 * linearization
-																	 * point
-																	 * when
-																	 * level = 0
-																	 */
+			prev.nexts.set(level, towerToRemove.nexts.get(level));
+			/*
+			 * linearization point when level = 0
+			 */
 
 			return true;
 		} finally {
@@ -287,7 +285,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 				return false;
 			}
 			TowerFG prev = prevs[0];
-			//prev.nextLocks[0].lock();
+			// prev.nextLocks[0].lock();
 			foundTower.nextLocks[0].lock();
 			try {
 
@@ -297,7 +295,9 @@ public class Pugh extends AbstractCompositionalIntSet {
 				 * found tower is already being removed, or is not fully
 				 * inserted
 				 */
-				if (foundTower.status != 1) {
+				int status;
+				status = foundTower.status;
+				if (status == 2) {
 					/*
 					 * insert linearizes at the start thus blocks concurrent
 					 * removes
@@ -307,10 +307,12 @@ public class Pugh extends AbstractCompositionalIntSet {
 					 * removes
 					 */
 					return false;
+				} else if (status == 0) {
+					continue;
 				}
-				//if (prev.nexts.get(0) != foundTower || prev.status != 1) {
-				//	continue;
-				//}
+				// if (prev.nexts.get(0) != foundTower || prev.status != 1) {
+				// continue;
+				// }
 
 				// int arr[] = new int[1];
 				// arr[0] = -1;
@@ -338,7 +340,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 
 				return true;
 			} finally {
-				//prev.nextLocks[0].unlock();
+				// prev.nextLocks[0].unlock();
 				foundTower.nextLocks[0].unlock();
 			}
 		}

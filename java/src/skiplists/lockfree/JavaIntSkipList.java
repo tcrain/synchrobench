@@ -4,7 +4,8 @@ import java.util.Collection;
 
 import contention.abstractions.CompositionalIntSet;
 
-public class JavaIntSkipList extends JavaSkiplist implements CompositionalIntSet {
+//public class JavaIntSkipList extends JavaSkiplist implements CompositionalIntSet {
+public class JavaIntSkipList extends java.util.concurrent.ConcurrentSkipListMap implements CompositionalIntSet {
 
 	
 	@Override
