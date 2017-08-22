@@ -1,8 +1,8 @@
 package skiplists.lockfree;
 
-public class PughBlocking extends Pugh {
+public class PughBlocking extends PughUnsafe {
 
 	public PughBlocking() {
-		super(false);
+		super(false, false, false);
 	}
 }

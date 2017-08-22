@@ -1,6 +1,6 @@
 package skiplists.versioned;
 
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import skiplists.versioned.tower.Tower;
 
 import contention.abstractions.AbstractCompositionalIntSet;
 

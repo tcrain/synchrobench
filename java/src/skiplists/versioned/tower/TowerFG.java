@@ -1,14 +1,10 @@
-package skiplists.versioned;
+package skiplists.versioned.tower;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
-public class TowerFG {
-	public final int val;
+import skiplists.TowerBase;
 
-	public final AtomicReferenceArray<TowerFG> nexts;
-
-	public volatile int height = 0;
+public class TowerFG extends TowerBase {
 
 	/* 0 = being inserted, 1 = valid, 2 = being deleted */
 	public volatile int status = 0;
@@ -17,9 +13,7 @@ public class TowerFG {
 	private static final int VERSION_BIT_MASK = -2;
 
 	public TowerFG(int val, int maxHeight, int height) {
-		this.val = val;
-		this.nexts = new AtomicReferenceArray<TowerFG>(maxHeight);
-		this.height = height;
+		super(val, height);
 		this.nextLocks = new AtomicInteger[height];
 		for (int i = 0; i < height; i++) {
 			this.nextLocks[i] = new AtomicInteger();
@@ -50,7 +44,7 @@ public class TowerFG {
 	}
 
 	public void resetLocks() {
-		for (int i = 0; i < height; i++) {
+		for (int i = 0; i < getHeight(); i++) {
 			nextLocks[i].set(0);
 		}
 	}

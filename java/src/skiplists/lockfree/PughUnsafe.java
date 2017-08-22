@@ -1,40 +1,52 @@
 package skiplists.lockfree;
 
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReferenceArray;
-
+import skiplists.lockfree.tower.MarkerUnsafe;
+import skiplists.lockfree.tower.TowerUnsafe;
 import contention.abstractions.AbstractCompositionalIntSet;
 
-public class Pugh extends AbstractCompositionalIntSet {
+public class PughUnsafe extends AbstractCompositionalIntSet {
 
-	private final TowerFG head;
-	private final TowerFG tail;
+	private final TowerUnsafe head;
+	private final TowerUnsafe tail;
 
 	private static final int MAX_HEIGHT = 22; // TODO: use variable max height
 												// selection
 	private static final int TOP = MAX_HEIGHT - 1;
 
 	private final boolean HELP;
+	private final boolean HELP_TRAVERSAL;
+	private final boolean HELP_CONTAINS_TRAVERSAL;
 
-	public Pugh() {
-		this(true);
+	final private ThreadLocal<TowerUnsafe[]> thdLocalPrevArray = new ThreadLocal<TowerUnsafe[]>() {
+		@Override
+		protected synchronized TowerUnsafe[] initialValue() {
+			return (TowerUnsafe[]) new TowerUnsafe[MAX_HEIGHT];
+		}
+	};
+
+	public PughUnsafe() {
+		// First and 2nd must be true to ensure non-blocking
+		this(true, true, false);
 	}
 
-	public Pugh(boolean help) {
+	public PughUnsafe(boolean help, boolean helpTraversal,
+			boolean helpContainsTraversal) {
 
 		HELP = help;
+		HELP_TRAVERSAL = helpTraversal;
+		HELP_CONTAINS_TRAVERSAL = helpContainsTraversal;
 
-		tail = new TowerFG(Integer.MAX_VALUE, MAX_HEIGHT, MAX_HEIGHT);
-		head = new TowerFG(Integer.MIN_VALUE, MAX_HEIGHT, MAX_HEIGHT);
+		tail = new TowerUnsafe(Integer.MAX_VALUE, MAX_HEIGHT, MAX_HEIGHT);
+		head = new TowerUnsafe(Integer.MIN_VALUE, MAX_HEIGHT, MAX_HEIGHT);
 
 		for (int i = 0; i < MAX_HEIGHT; i++) {
-			head.nexts.set(i, tail);
+			head.set(i, tail);
 		}
 
 		// head.height = MAX_HEIGHT;
 		// tail.height = MAX_HEIGHT;
-		head.status.set(1);
-		tail.status.set(1);
+		// head.status.set(1);
+		// tail.status.set(1);
 	}
 
 	/*
@@ -44,8 +56,9 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 */
 
 	/*
-	 * private TowerFG traverse(int val, TowerFG[] prevs, int[] foundarr) {
-	 * TowerFG prev = head; TowerFG curr = null; TowerFG found = null;
+	 * private TowerUnsafe traverse(int val, TowerUnsafe[] prevs, int[]
+	 * foundarr) { TowerUnsafe prev = head; TowerUnsafe curr = null; TowerUnsafe
+	 * found = null;
 	 * 
 	 * traverse down the levels of the skiplist for (int level = TOP; level >=
 	 * 0; level--) { curr = prev.nexts.get(level);
@@ -61,32 +74,32 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 * val not found at any level return found; }
 	 */
 
-	private boolean helpRemoval(int level, TowerFG prevPrev, TowerFG prev,
-			TowerFG curr) {
-		assert (prev.nexts.get(level).marker);
-		return prevPrev.nexts.compareAndSet(level, prev, curr);
+	private boolean helpRemoval(int level, TowerUnsafe prevPrev,
+			TowerUnsafe prev, TowerUnsafe curr) {
+		assert ((TowerUnsafe) prev.getNext(level)).marker;
+		return prevPrev.compareAndSet(level, prev, curr);
 	}
 
-	private boolean helpMarker(int level, TowerFG prev, TowerFG curr) {
-		assert prev.status.get() == 2;
-		TowerFG marker = new TowerFG(curr.val, MAX_HEIGHT, curr.height, true);
-		marker.nexts.set(level, curr);
-		return prev.nexts.compareAndSet(level, curr, marker);
+	private boolean helpMarker(int level, TowerUnsafe prev, TowerUnsafe curr) {
+		// assert prev.status.get() == 2;
+		TowerUnsafe marker = new MarkerUnsafe(curr.val, level, curr);
+		// marker.nexts.set(level, curr);
+		return prev.compareAndSet(level, curr, marker);
 	}
 
-	private TowerFG traverse(int val, TowerFG[] prevs) {
-		TowerFG prev = head, prevPrev;
-		TowerFG curr = null;
-		TowerFG found = null;
+	private TowerUnsafe traverse(int val, TowerUnsafe[] prevs) {
+		TowerUnsafe prev = head, prevPrev;
+		TowerUnsafe curr = null;
+		TowerUnsafe found = null;
 		boolean marker = false;
 
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
 			marker = false;
 			prevPrev = null;
-			curr = prev.nexts.get(level);
+			curr = (TowerUnsafe) prev.getNext(level);
 			if (curr.marker) {
-				curr = curr.nexts.get(level);
+				curr = (TowerUnsafe) curr.getNext(level);
 				marker = true;
 			}
 
@@ -95,16 +108,25 @@ public class Pugh extends AbstractCompositionalIntSet {
 				marker = false;
 				prevPrev = prev;
 				prev = curr;
-				curr = curr.nexts.get(level);
+				curr = (TowerUnsafe) curr.getNext(level);
 				if (curr.marker) {
-					curr = curr.nexts.get(level);
+					curr = (TowerUnsafe) curr.getNext(level);
 					marker = true;
 				}
+				if (HELP_TRAVERSAL) {
+					if (marker) {
+						helpRemoval(level, prevPrev, prev, curr);
+					} else if (((TowerUnsafe) prev.getNext(0)).marker) {
+						if (helpMarker(level, prev, curr)) {
+							helpRemoval(level, prevPrev, prev, curr);
+						}
+					}
+				}
 			}
-			if (HELP) {
+			if (HELP && !HELP_TRAVERSAL) {
 				if (marker && prevPrev != null) {
 					helpRemoval(level, prevPrev, prev, curr);
-				} else if (prev.status.get() == 2) {
+				} else if (((TowerUnsafe) prev.getNext(0)).marker) {
 					helpMarker(level, prev, curr);
 				}
 			}
@@ -129,8 +151,8 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 */
 
 	/*
-	 * private boolean validateInsert(TowerFG prev, TowerFG towerToInsert, int
-	 * level) {
+	 * private boolean validateInsert(TowerUnsafe prev, TowerUnsafe
+	 * towerToInsert, int level) {
 	 * 
 	 * if prev is being inserted or being deleted if (prev.status.get() != 1) {
 	 * return false; }
@@ -144,8 +166,8 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 * success, so return the version at this level return true; }
 	 */
 
-	private boolean tryInsertAtLevel(TowerFG prev, TowerFG towerToInsert,
-			int level) {
+	private boolean tryInsertAtLevel(TowerUnsafe prev,
+			TowerUnsafe towerToInsert, int level) {
 		// prev.nextLocks[level].lock();
 		// try {
 		// if (!validateInsert(prev, towerToInsert, level)) {
@@ -153,12 +175,13 @@ public class Pugh extends AbstractCompositionalIntSet {
 		// }
 
 		/* if prev is being inserted or being deleted */
-		if (towerToInsert.status.get() > 1) {
-			assert (HELP);
+		TowerUnsafe next = (TowerUnsafe) prev.getNext(0);
+		if (next.marker) {
+			// assert (HELP);
 			return false;
 		}
-		assert (!prev.marker);
-		TowerFG expect = prev.nexts.get(level);
+		assert !(prev.marker);
+		TowerUnsafe expect = (TowerUnsafe) prev.getNext(level);
 		// if (prev.status.get() == 2 || expect.marker) {
 		if (expect.marker) {
 			// if (HELP) {
@@ -182,11 +205,11 @@ public class Pugh extends AbstractCompositionalIntSet {
 		}
 
 		/* set towerToInsert's next */
-		towerToInsert.nexts.set(level, expect);
+		towerToInsert.set(level, expect);
 		assert (expect != null);
 
 		/* update prev's next */
-		if (prev.nexts.compareAndSet(level, expect, towerToInsert)) {
+		if (prev.compareAndSet(level, expect, towerToInsert)) {
 			return true;
 		}
 		/*
@@ -198,14 +221,13 @@ public class Pugh extends AbstractCompositionalIntSet {
 		// }
 	}
 
-	private boolean helpRemovalMarker(TowerFG[] prevs, TowerFG curr) {
-		assert (curr.status.get() == 2);
+	private boolean helpRemovalMarker(TowerUnsafe[] prevs, TowerUnsafe curr) {
+		// assert (curr.status.get() == 2);
 		int retries = 0;
-		TowerFG marker = new TowerFG(curr.val, MAX_HEIGHT, curr.height, true);
 		// Try to remove one level at a time, if a level fails, just exit since
 		// we are not the main one
-		for (int level = curr.height - 1; level >= 0; level--) {
-			if (!tryRemoveAtLevel(prevs[level], curr, marker, level, retries)) {
+		for (int level = curr.getHeight() - 1; level >= 0; level--) {
+			if (!tryRemoveAtLevel(prevs[level], curr, level, retries)) {
 				return false;
 			}
 		}
@@ -214,9 +236,10 @@ public class Pugh extends AbstractCompositionalIntSet {
 
 	@Override
 	public boolean addInt(int val) {
-		TowerFG[] prevs = new TowerFG[MAX_HEIGHT];
-		TowerFG towerToInsert = null;
-		TowerFG foundTower = null;
+		TowerUnsafe[] prevs = new TowerUnsafe[MAX_HEIGHT];
+		// TowerUnsafe[] prevs = thdLocalPrevArray.get();
+		TowerUnsafe towerToInsert = null;
+		TowerUnsafe foundTower = null, next;
 
 		retryFromTraverse: while (true) {
 			towerToInsert = null;
@@ -230,7 +253,8 @@ public class Pugh extends AbstractCompositionalIntSet {
 				 * wait-free traversed onto node just before being fully
 				 * unlinked / deleted
 				 */
-				if (foundTower.status.get() == 2) {
+				next = (TowerUnsafe) foundTower.getNext(0);
+				if (next.marker) {
 					/* can not return false as that equals successful contains */
 					if (HELP) {
 						helpRemovalMarker(prevs, foundTower);
@@ -252,7 +276,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 			if (towerToInsert == null) {
 				int height = getRandomHeight();
 				assert (height > 0);
-				towerToInsert = new TowerFG(val, MAX_HEIGHT, height);
+				towerToInsert = new TowerUnsafe(val, MAX_HEIGHT, height);
 
 				/* start tower as locked */
 				// towerToInsert.nextLocks[0].lock(); /*
@@ -263,7 +287,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 
 			/* insert at each level */
 			int level = 0;
-			while (level < towerToInsert.height) {
+			while (level < towerToInsert.getHeight()) {
 				if (tryInsertAtLevel(prevs[level], towerToInsert, level)) {
 					/* insert has succeeded at this level */
 					level++;
@@ -277,8 +301,9 @@ public class Pugh extends AbstractCompositionalIntSet {
 					if (level == 0) {
 						continue retryFromTraverse;
 					} else if (HELP) {
-						if (towerToInsert.status.get() != 1) {
-							assert (towerToInsert.status.get() == 2 && level > 0);
+						next = (TowerUnsafe) towerToInsert.getNext(0);
+						if (next.marker) {
+							assert level > 0;
 							/*
 							 * Someone has finished for us, or started deleting
 							 * this tower
@@ -298,9 +323,9 @@ public class Pugh extends AbstractCompositionalIntSet {
 		// if (HELP) {
 		// towerToInsert.status.compareAndSet(0, 1);
 		// } else {
-		if (!HELP) {
-			towerToInsert.status.set(1);
-		}
+		// if (!HELP) {
+		// towerToInsert.status.set(1);
+		// }
 		// }
 		// int arr[] = new int[1];
 		// arr[0] = -1;
@@ -320,8 +345,8 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 * *********************
 	 */
 	/*
-	 * private boolean validateRemove(TowerFG prev, TowerFG towerToRemove, int
-	 * level) {
+	 * private boolean validateRemove(TowerUnsafe prev, TowerUnsafe
+	 * towerToRemove, int level) {
 	 * 
 	 * if prev is being inserted or being deleted if (prev.status.get() != 1) {
 	 * return false; }
@@ -334,8 +359,8 @@ public class Pugh extends AbstractCompositionalIntSet {
 	 * }
 	 */
 
-	private boolean tryRemoveAtLevel(TowerFG prev, TowerFG towerToRemove,
-			TowerFG marker, int level, int retries) {
+	private boolean tryRemoveAtLevel(TowerUnsafe prev,
+			TowerUnsafe towerToRemove, int level, int retries) {
 		// prev.nextLocks[level].lock();
 		// towerToRemove.nextLocks[level].lock();
 		// try {
@@ -355,17 +380,17 @@ public class Pugh extends AbstractCompositionalIntSet {
 		// }
 
 		/* if prev is not pointing to the tower at the current level */
-		TowerFG next = prev.nexts.get(level);
-		if (prev.nexts.get(level) != towerToRemove) {
+		TowerUnsafe next = (TowerUnsafe) prev.getNext(level);
+		if (prev.getNext(level) != towerToRemove) {
 			if (HELP) {
 				if (next.marker) {
-					next = next.nexts.get(level);
+					next = (TowerUnsafe) next.getNext(level);
 				}
 				while (next.val < towerToRemove.val) {
 					prev = next;
-					next = prev.nexts.get(level);
+					next = (TowerUnsafe) prev.getNext(level);
 					if (next.marker) {
-						next = next.nexts.get(level);
+						next = (TowerUnsafe) next.getNext(level);
 					}
 				}
 				if (next != towerToRemove) {
@@ -376,28 +401,30 @@ public class Pugh extends AbstractCompositionalIntSet {
 			return false;
 		}
 
-		assert (!prev.marker);
+		assert !(prev.marker);
 
-		// TowerFG next;
+		// TowerUnsafe next;
 		while (true) {
-			next = towerToRemove.nexts.get(level);
+			next = (TowerUnsafe) towerToRemove.getNext(level);
 			if (next.marker) {
-				if (!HELP) {
-					assert (next == marker);
-				}
-				next = next.nexts.get(level);
+				// if (!HELP) {
+				// assert (next == marker);
+				// }
+				next = (TowerUnsafe) next.getNext(level);
 				break;
 			}
-			assert (next != null && !next.marker);
-			marker.nexts.set(level, next);
-			if (towerToRemove.nexts.compareAndSet(level, next, marker)) {
+			assert (next != null && !(next.marker));
+			MarkerUnsafe marker = new MarkerUnsafe(towerToRemove.val, level,
+					next);
+			// marker.nexts.set(level, next);
+			if (towerToRemove.compareAndSet(level, next, marker)) {
 				break;
 			}
 		}
 
-		assert (next != null && !next.marker);
+		assert (next != null && !(next.marker));
 		/* update prev to skip over towerToRemove */
-		if (!prev.nexts.compareAndSet(level, towerToRemove, next)) {
+		if (!prev.compareAndSet(level, towerToRemove, next)) {
 			return false;
 		}
 		/*
@@ -412,32 +439,23 @@ public class Pugh extends AbstractCompositionalIntSet {
 
 	}
 
-	private boolean helpInsert(TowerFG[] prevs, TowerFG towerToInsert) {
-		int level = 1;
-		while (level < towerToInsert.height) {
-			if (tryInsertAtLevel(prevs[level], towerToInsert, level)) {
-				/* insert has succeeded at this level */
-				level++;
-			} else {
-				if (towerToInsert.status.get() != 0) {
-					// Someone has finished for us, or started deleting this
-					// tower
-					return true;
-				}
-				return false;
-			}
-		}
-		if (towerToInsert.status.compareAndSet(0, 1)) {
-			return true;
-		}
-		return false;
-	}
+	/*
+	 * private boolean helpInsert(TowerUnsafe[] prevs, TowerUnsafe
+	 * towerToInsert) { int level = 1; while (level < towerToInsert.height) { if
+	 * (tryInsertAtLevel(prevs[level], towerToInsert, level)) { insert has
+	 * succeeded at this level level++; } else { if (towerToInsert.status.get()
+	 * != 0) { // Someone has finished for us, or started deleting this // tower
+	 * return true; } return false; } } if
+	 * (towerToInsert.status.compareAndSet(0, 1)) { return true; } return false;
+	 * }
+	 */
 
 	@Override
 	public boolean removeInt(int val) {
-		TowerFG[] prevs = new TowerFG[MAX_HEIGHT];
-		TowerFG foundTower = null;
-		int status;
+		// TowerUnsafe[] prevs = thdLocalPrevArray.get();
+		TowerUnsafe[] prevs = new TowerUnsafe[MAX_HEIGHT];
+		TowerUnsafe foundTower = null, next;
+		// int status;
 
 		while (true) {
 			/* traverse the skiplist */
@@ -447,9 +465,9 @@ public class Pugh extends AbstractCompositionalIntSet {
 			if (foundTower == null) {
 				return false;
 			}
-			assert (!foundTower.marker);
+			assert !(foundTower.marker);
 
-			// TowerFG prev = prevs[0];
+			// TowerUnsafe prev = prevs[0];
 			// prev.nextLocks[0].lock();
 			// foundTower.nextLocks[0].lock();
 			// try {
@@ -459,12 +477,14 @@ public class Pugh extends AbstractCompositionalIntSet {
 			/*
 			 * found tower is already being removed, or is not fully inserted
 			 */
-			status = foundTower.status.get();
-			if (status == 2) {
+
+			// status = foundTower.status.get();
+			next = (TowerUnsafe) foundTower.getNext(0);
+			if (next.marker) {
 				/* insert linearizes at the start thus blocks concurrent removes */
 				/* remove linearizes at the end thus blocks concurrent removes */
 				return false;
-			} else if (status == 1) {
+			} else {// if (status == 1) {
 				// if (HELP) {
 				// Should help insert
 				// if (!helpInsert(prevs, foundTower)) {
@@ -474,7 +494,7 @@ public class Pugh extends AbstractCompositionalIntSet {
 				break;
 				// }
 			}
-			assert (status == 0);
+			// assert (status == 0);
 		}
 		// if (prev.nexts.get(0) != foundTower || prev.status != 1) {
 		// continue;
@@ -485,21 +505,21 @@ public class Pugh extends AbstractCompositionalIntSet {
 		// assert (foundTower == traverse(val, prevs, arr));
 		// assert (arr[0] == foundTower.height);
 		/* mark tower as being deleted */
-		if (!foundTower.status.compareAndSet(status, 2)) {
+		// if (!foundTower.status.compareAndSet(status, 2)) {
+		if (!helpMarker(0, foundTower, next)) {
 			return false;
 		}
-		TowerFG marker = new TowerFG(val, MAX_HEIGHT, foundTower.height, true);
+		// TowerUnsafe marker = new Marker(val, foundTower.height);
 
 		/* remove at each level */
-		int level = (foundTower.height - 1);
+		int level = (foundTower.getHeight() - 1);
 		int retries = 0;
 		while (level >= 0) {
-			if (tryRemoveAtLevel(prevs[level], foundTower, marker, level,
-					retries)) {
+			if (tryRemoveAtLevel(prevs[level], foundTower, level, retries)) {
 				/* remove has succeeded at this level */
 				level--;
 				retries = 0;
-
+				// return true;
 				/* re-traverse and try again with updated prevs */
 			} else {
 				/* re-traverse to update list of prevs */
@@ -527,29 +547,44 @@ public class Pugh extends AbstractCompositionalIntSet {
 
 	@Override
 	public boolean containsInt(int val) {
-		TowerFG prev = head;
-		TowerFG curr = null;
+		TowerUnsafe prev = head, prevPrev;
+		TowerUnsafe curr = null;
+		boolean marker;
 
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
-			curr = prev.nexts.get(level);
+			marker = false;
+			prevPrev = null;
+			curr = (TowerUnsafe) prev.getNext(level);
 			if (curr.marker) {
-				curr = curr.nexts.get(level);
+				curr = (TowerUnsafe) curr.getNext(level);
 			}
 
 			/* traverse at the current level */
 			while (curr.val < val) {
+				marker = false;
+				prevPrev = prev;
 				prev = curr;
-				curr = curr.nexts.get(level);
+				curr = (TowerUnsafe) curr.getNext(level);
 				if (curr.marker) {
-					curr = curr.nexts.get(level);
+					curr = (TowerUnsafe) curr.getNext(level);
+				}
+				if (HELP_CONTAINS_TRAVERSAL) {
+					if (marker) {
+						helpRemoval(level, prevPrev, prev, curr);
+					} else if (((TowerUnsafe) prev.getNext(0)).marker) {
+						if (helpMarker(level, prev, curr)) {
+							helpRemoval(level, prevPrev, prev, curr);
+						}
+					}
 				}
 			}
 
 			/* if val is found at the current level */
 			if (curr.val == val) {
-				/* success depends on if the TowerFG is not deleted */
-				return (curr.status.get() != 2);
+				/* success depends on if the TowerUnsafe is not deleted */
+				// return (curr.status.get() != 2);
+				return !(((TowerUnsafe) curr.getNext(0)).marker);
 			}
 		}
 
@@ -566,17 +601,15 @@ public class Pugh extends AbstractCompositionalIntSet {
 	@Override
 	public int size() {
 		int size = 0;
-		TowerFG curr = head.nexts.get(0);
+		TowerUnsafe curr = (TowerUnsafe) head.getNext(0);
 		while (curr != tail) {
-			if (curr.height != 0 && curr.status.get() == 1) {
+			if (curr.getHeight() != 0 && !((TowerUnsafe) curr.getNext(0)).marker) {
 				size++;
 			}
-			if (curr.status.get() == 2) {
-				assert curr.nexts.get(0).marker;
-				curr = curr.nexts.get(0);
-			} else
-				assert curr.status.get() == 1;
-			curr = curr.nexts.get(0);
+			if (((TowerUnsafe) curr.getNext(0)).marker) {
+				curr = (TowerUnsafe) curr.getNext(0);
+			}
+			curr = (TowerUnsafe) curr.getNext(0);
 		}
 		// this.print();
 		return size;
@@ -585,12 +618,12 @@ public class Pugh extends AbstractCompositionalIntSet {
 	@Override
 	public void clear() {
 		for (int i = 0; i < MAX_HEIGHT; i++) {
-			head.nexts.set(i, tail);
+			head.set(i, tail);
 		}
 		// head.resetLocks();
 		// tail.resetLocks();
-		assert head.height == MAX_HEIGHT;
-		assert tail.height == MAX_HEIGHT;
+		assert head.getHeight() == MAX_HEIGHT;
+		assert tail.getHeight() == MAX_HEIGHT;
 	}
 
 	private int getRandomHeight() {
@@ -602,47 +635,14 @@ public class Pugh extends AbstractCompositionalIntSet {
 	void print() {
 		System.out.println("skiplist:");
 		for (int i = MAX_HEIGHT - 1; i >= 0; i--) {
-			TowerFG next = head;
+			TowerUnsafe next = head;
 			while (next != tail) {
 				System.out.print(next.val + "-- ");
-				next = next.nexts.get(i);
+				next = (TowerUnsafe) next.getNext(i);
 			}
 			System.out.println();
 		}
 		System.out.println();
-	}
-
-	public class TowerFG {
-		public final int val;
-
-		public final AtomicReferenceArray<TowerFG> nexts;
-
-		public final int height;
-		public final boolean marker;
-
-		/* 0 = being inserted, 1 = valid, 2 = being deleted, 3 = marker */
-		public final AtomicInteger status;
-
-		// final ReentrantLock[] nextLocks;
-
-		public TowerFG(int val, int maxHeight, int height) {
-			this(val, maxHeight, height, false);
-		}
-
-		public TowerFG(int val, int maxHeight, int height, boolean marker) {
-			if (HELP) {
-				status = new AtomicInteger(1);
-			} else {
-				status = new AtomicInteger(0);
-			}
-			this.marker = marker;
-			if (marker) {
-				status.set(3);
-			}
-			this.val = val;
-			this.nexts = new AtomicReferenceArray<TowerFG>(height);
-			this.height = height;
-		}
 	}
 
 }

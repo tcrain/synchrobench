@@ -1,4 +1,4 @@
-package skiplists.lockfree;
+package skiplists.old;
 
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.

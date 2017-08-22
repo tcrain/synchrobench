@@ -1,4 +1,4 @@
-package skiplists.versioned;
+package skiplists.versioned.tower;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;

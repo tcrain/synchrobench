@@ -33,7 +33,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-package skiplists.lockfree;
+package skiplists.old;
 
 import java.io.ObjectStreamField;
 import java.lang.reflect.Field;

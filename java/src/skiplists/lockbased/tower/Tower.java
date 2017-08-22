@@ -1,15 +1,11 @@
-package skiplists.lockbased;
+package skiplists.lockbased.tower;
 
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class Tower {
-	public final int val;
+import skiplists.TowerBase;
 
-	public final AtomicReferenceArray<Tower> nexts;
-
-	public volatile int height = 0;
+public class Tower extends TowerBase {
 
 	/* 0 = being inserted, 1 = valid, 2 = being deleted */
 	public volatile int status = 0;
@@ -17,9 +13,7 @@ public class Tower {
 	final Lock lock = new ReentrantLock();
 
 	public Tower(int val, int maxHeight, int height) {
-		this.val = val;
-		this.nexts = new AtomicReferenceArray<Tower>(maxHeight);
-		this.height = height;
+		super(val, height);
 	}
 
 	public void lock() {

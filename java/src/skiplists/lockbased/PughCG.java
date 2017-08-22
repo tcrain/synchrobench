@@ -1,5 +1,6 @@
 package skiplists.lockbased;
 
+import skiplists.lockbased.tower.Tower;
 import contention.abstractions.AbstractCompositionalIntSet;
 
 public class PughCG extends AbstractCompositionalIntSet {
@@ -17,11 +18,11 @@ public class PughCG extends AbstractCompositionalIntSet {
 		head = new Tower(Integer.MIN_VALUE, MAX_HEIGHT, MAX_HEIGHT);
 
 		for (int i = 0; i < MAX_HEIGHT; i++) {
-			head.nexts.set(i, tail);
+			head.set(i, tail);
 		}
 
-		head.height = MAX_HEIGHT;
-		tail.height = MAX_HEIGHT;
+		// head.height = MAX_HEIGHT;
+		// tail.height = MAX_HEIGHT;
 		head.status = 1;
 		tail.status = 1;
 	}
@@ -39,12 +40,12 @@ public class PughCG extends AbstractCompositionalIntSet {
 
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
-			curr = prev.nexts.get(level);
+			curr = (Tower) prev.getNext(level);
 
 			/* traverse at the current level */
 			while (curr.val < val) {
 				prev = curr;
-				curr = curr.nexts.get(level);
+				curr = (Tower) curr.getNext(level);
 			}
 
 			/* record prevs at each level */
@@ -74,12 +75,12 @@ public class PughCG extends AbstractCompositionalIntSet {
 		}
 
 		/* if prev is already pointing to towerToInsert at the current level */
-		if (prev.nexts.get(level).val == towerToInsert.val) {
+		if (((Tower) prev.getNext(level)).val == towerToInsert.val) {
 			return false;
 		}
 
 		/* if prev is no longer the appropriate prev to utilize */
-		if (prev.nexts.get(level).val < towerToInsert.val) {
+		if (((Tower) prev.getNext(level)).val < towerToInsert.val) {
 			return false;
 		}
 
@@ -95,13 +96,13 @@ public class PughCG extends AbstractCompositionalIntSet {
 			}
 
 			/* set towerToInsert's next */
-			towerToInsert.nexts.set(level, prev.nexts.get(level));
+			towerToInsert.set(level, prev.getNext(level));
 
 			/* update prev's next */
-			prev.nexts.set(level, towerToInsert); /*
-												 * linearization point when
-												 * level = 0
-												 */
+			prev.set(level, towerToInsert); /*
+											 * linearization point when level =
+											 * 0
+											 */
 			return true;
 		} finally {
 			prev.unlock();
@@ -152,7 +153,7 @@ public class PughCG extends AbstractCompositionalIntSet {
 
 			/* insert at each level */
 			int level = 0;
-			while (level < towerToInsert.height) {
+			while (level < towerToInsert.getHeight()) {
 				if (tryInsertAtLevel(prevs[level], towerToInsert, level)) {
 					/* insert has succeeded at this level */
 					level++;
@@ -197,7 +198,7 @@ public class PughCG extends AbstractCompositionalIntSet {
 		}
 
 		/* if prev is not pointing to the tower at the current level */
-		if (prev.nexts.get(level).val != towerToRemove.val) {
+		if (((Tower) prev.getNext(level)).val != towerToRemove.val) {
 			return false;
 		}
 
@@ -214,12 +215,11 @@ public class PughCG extends AbstractCompositionalIntSet {
 			}
 
 			/* update prev to skip over towerToRemove */
-			prev.nexts.set(level, towerToRemove.nexts.get(level)); /*
-																	 * linearization
-																	 * point
-																	 * when
-																	 * level = 0
-																	 */
+			prev.set(level, towerToRemove.getNext(level)); /*
+															 * linearization
+															 * point when level
+															 * = 0
+															 */
 
 			return true;
 		} finally {
@@ -266,7 +266,7 @@ public class PughCG extends AbstractCompositionalIntSet {
 				}
 
 				/* remove at each level */
-				int level = (foundTower.height - 1);
+				int level = (foundTower.getHeight() - 1);
 				while (level >= 0) {
 					if (tryRemoveAtLevel(prevs[level], foundTower, level)) {
 						/* remove has succeeded at this level */
@@ -305,12 +305,12 @@ public class PughCG extends AbstractCompositionalIntSet {
 
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
-			curr = prev.nexts.get(level);
+			curr = (Tower) prev.getNext(level);
 
 			/* traverse at the current level */
 			while (curr.val < val) {
 				prev = curr;
-				curr = curr.nexts.get(level);
+				curr = (Tower) curr.getNext(level);
 			}
 
 			/* if val is found at the current level */
@@ -333,12 +333,12 @@ public class PughCG extends AbstractCompositionalIntSet {
 	@Override
 	public int size() {
 		int size = 0;
-		Tower curr = head.nexts.get(0);
+		Tower curr = (Tower) head.getNext(0);
 		while (curr != tail) {
-			if (curr.height != 0) {
+			if (curr.getHeight() != 0) {
 				size++;
 			}
-			curr = curr.nexts.get(0);
+			curr = (Tower) curr.getNext(0);
 		}
 		return size;
 	}
@@ -346,12 +346,12 @@ public class PughCG extends AbstractCompositionalIntSet {
 	@Override
 	public void clear() {
 		for (int i = 0; i < MAX_HEIGHT; i++) {
-			head.nexts.set(i, tail);
+			head.set(i, tail);
 		}
 		// head.resetLocks();
 		// tail.resetLocks();
-		assert head.height == MAX_HEIGHT;
-		assert tail.height == MAX_HEIGHT;
+		assert head.getHeight() == MAX_HEIGHT;
+		assert tail.getHeight() == MAX_HEIGHT;
 	}
 
 	private int getRandomHeight() {
@@ -366,7 +366,7 @@ public class PughCG extends AbstractCompositionalIntSet {
 			Tower next = head;
 			while (next != tail) {
 				System.out.print(next.val + "-- ");
-				next = next.nexts.get(i);
+				next = (Tower) next.getNext(i);
 			}
 			System.out.println();
 		}

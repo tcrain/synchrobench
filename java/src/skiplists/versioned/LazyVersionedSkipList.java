@@ -17,8 +17,8 @@ package skiplists.versioned;
 
 import java.util.Collection;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import skiplists.versioned.tower.LazyTower;
 import contention.abstractions.CompositionalIntSet;
 
 public final class LazyVersionedSkipList implements CompositionalIntSet {
@@ -26,9 +26,9 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	/** The maximum number of levels */
 	final private int maxLevel;
 	/** The first element of the list */
-	final private Node head;
+	final private LazyTower head;
 	/** The last element of the list */
-	final private Node tail;
+	final private LazyTower tail;
 
 	/**
 	 * The thread-private PRNG, used for fil(), not for height/level
@@ -42,8 +42,8 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	};
 
 	private int randomLevel() {
-		return Math.min((maxLevel - 1),
-				(skiplists.RandomLevelGenerator.randomLevel()));
+		return Math.min((maxLevel),
+				(skiplists.RandomLevelGenerator.randomLevel() + 1));
 	}
 
 	public LazyVersionedSkipList() {
@@ -51,11 +51,11 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	}
 
 	public LazyVersionedSkipList(final int maxLevel) {
-		this.head = new Node(Integer.MIN_VALUE, maxLevel);
-		this.tail = new Node(Integer.MAX_VALUE, maxLevel);
+		this.head = new LazyTower(Integer.MIN_VALUE, maxLevel, maxLevel);
+		this.tail = new LazyTower(Integer.MAX_VALUE, maxLevel, maxLevel);
 		this.maxLevel = maxLevel;
-		for (int i = 0; i <= maxLevel; i++) {
-			head.next[i] = tail;
+		for (int i = 0; i < maxLevel; i++) {
+			head.set(i, tail);
 		}
 	}
 
@@ -63,18 +63,18 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	public boolean containsInt(final int value) {
 		int key = value;
 		int levelFound = -1;
-		Node pred = head;
-		Node curr = pred;
+		LazyTower pred = head;
+		LazyTower curr = pred;
 
-		for (int level = maxLevel; level >= 0; level--) {
-			curr = pred.next[level];
+		for (int level = maxLevel - 1; level >= 0; level--) {
+			curr = (LazyTower) pred.getNext(level);
 
-			while (key > curr.key) {
+			while (key > curr.val) {
 				pred = curr;
-				curr = pred.next[level];
+				curr = (LazyTower) pred.getNext(level);
 			}
 
-			if (levelFound == -1 && key == curr.key) {
+			if (levelFound == -1 && key == curr.val) {
 				levelFound = level;
 			}
 		}
@@ -85,22 +85,22 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	 * The preds[] and succs[] arrays are filled from the maximum level to 0
 	 * with the predecessor and successor references for the given key.
 	 */
-	private int find(final int value, Node[] preds, Node[] succs, int[] versions) {
+	private int find(final int value, LazyTower[] preds, LazyTower[] succs, int[] versions) {
 		int key = value;
 		int levelFound = -1;
-		Node pred = head;
+		LazyTower pred = head;
 
-		for (int level = maxLevel; level >= 0; level--) {
+		for (int level = maxLevel - 1; level >= 0; level--) {
 			int version = pred.getVersion();
-			Node curr = pred.next[level];
+			LazyTower curr = (LazyTower) pred.getNext(level);
 
-			while (key > curr.key) {
+			while (key > curr.val) {
 				pred = curr;
 				version = pred.getVersion();
-				curr = pred.next[level];
+				curr = (LazyTower) pred.getNext(level);
 			}
 
-			if (levelFound == -1 && key == curr.key) {
+			if (levelFound == -1 && key == curr.val) {
 				levelFound = level;
 			}
 			preds[level] = pred;
@@ -113,9 +113,9 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	@Override
 	public boolean addInt(final int value) {
 		int topLevel = randomLevel();
-		Node[] preds = (Node[]) new Node[maxLevel + 1];
-		Node[] succs = (Node[]) new Node[maxLevel + 1];
-		int[] versions = new int[maxLevel + 1];
+		LazyTower[] preds = new LazyTower[maxLevel];
+		LazyTower[] succs = new LazyTower[maxLevel];
+		int[] versions = new int[maxLevel];
 
 		while (true) {
 			/* Call find() to initialize preds and succs. */
@@ -123,7 +123,7 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 
 			/* If an node is found that is unmarked then return false. */
 			if (levelFound != -1) {
-				Node nodeFound = succs[levelFound];
+				LazyTower nodeFound = succs[levelFound];
 				if (!nodeFound.marked) {
 					/* Needs to wait for nodes to become fully linked. */
 					while (!nodeFound.fullyLinked) {
@@ -140,13 +140,13 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 			try {
 
 				/* Acquire locks. */
-				Node prev = null;
-				for (int level = 0; valid && (level <= topLevel); level++) {
+				LazyTower prev = null;
+				for (int level = 0; valid && (level < topLevel); level++) {
 					// succ = succs[level];
 					// pred.lock.lock();
 					// valid = !pred.marked && !succ.marked &&
 					// pred.next[level]==succ;
-					Node pred = preds[level];
+					LazyTower pred = preds[level];
 					if (!pred.marked && !succs[level].marked) {
 						if (pred != prev) {
 							prev = pred;
@@ -170,21 +170,21 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 					continue;
 				}
 
-				Node newNode = new Node(value, topLevel);
-				for (int level = 0; level <= topLevel; level++) {
-					newNode.next[level] = succs[level];
+				LazyTower newNode = new LazyTower(value, maxLevel, topLevel);
+				for (int level = 0; level < topLevel; level++) {
+					newNode.set(level, succs[level]);
 				}
-				for (int level = 0; level <= topLevel; level++) {
-					preds[level].next[level] = newNode;
+				for (int level = 0; level < topLevel; level++) {
+					preds[level].set(level, newNode);
 				}
 				newNode.fullyLinked = true; // successful and linearization
 											// point
 				return true;
 
 			} finally {
-				Node prev = null;
+				LazyTower prev = null;
 				for (int level = 0; level <= highestLocked; level++) {
-					Node pred = preds[level];
+					LazyTower pred = preds[level];
 					if (pred != prev) {
 						prev = pred;
 						if (!valid)
@@ -201,12 +201,12 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 
 	@Override
 	public boolean removeInt(final int value) {
-		Node victim = null;
+		LazyTower victim = null;
 		boolean isMarked = false;
 		int topLevel = -1;
-		Node[] preds = (Node[]) new Node[maxLevel + 1];
-		Node[] succs = (Node[]) new Node[maxLevel + 1];
-		int[] versions = new int[maxLevel + 1];
+		LazyTower[] preds = new LazyTower[maxLevel];
+		LazyTower[] succs = new LazyTower[maxLevel];
+		int[] versions = new int[maxLevel];
 
 		while (true) {
 			/* Call find() to initialize preds and succs. */
@@ -218,7 +218,7 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 			/* Ready to delete if unmarked, fully linked, and at its top level. */
 			if (isMarked
 					| (levelFound != -1 && (victim.fullyLinked
-							&& victim.topLevel == levelFound && !victim.marked))) {
+							&& victim.topLevel - 1 == levelFound && !victim.marked))) {
 
 				/* Acquire locks in order to logically delete. */
 				if (!isMarked) {
@@ -237,9 +237,9 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 
 				try {
 					/* Acquire locks. */
-					Node prev = null;
-					for (int level = 0; valid && (level <= topLevel); level++) {
-						Node pred = preds[level];
+					LazyTower prev = null;
+					for (int level = 0; valid && (level < topLevel); level++) {
+						LazyTower pred = preds[level];
 						// valid = !pred.marked && pred.next[level] == victim;
 						if (!pred.marked) {
 							if (pred != prev) {
@@ -263,16 +263,16 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 					}
 
 					/* Unlink. */
-					for (int level = topLevel; level >= 0; level--) {
-						preds[level].next[level] = victim.next[level];
+					for (int level = topLevel - 1; level >= 0; level--) {
+						preds[level].set(level, victim.getNext(level));
 					}
 					victim.unlockAndIncrementVersion();
 					return true;
 
 				} finally {
-					Node prev = null;
+					LazyTower prev = null;
 					for (int i = 0; i <= highestLocked; i++) {
-						Node pred = preds[i];
+						LazyTower pred = preds[i];
 						if (pred != prev) {
 							prev = pred;
 							if (!valid)
@@ -316,10 +316,10 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	@Override
 	public int size() {
 		int size = 0;
-		Node node = head.next[0].next[0];
+		LazyTower node = (LazyTower) ((LazyTower) head.getNext(0)).getNext(0);
 
 		while (node != null) {
-			node = node.next[0];
+			node = (LazyTower) node.getNext(0);
 			size++;
 		}
 		return size;
@@ -327,8 +327,8 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 
 	@Override
 	public void clear() {
-		for (int i = 0; i <= this.maxLevel; i++) {
-			this.head.next[i] = this.tail;
+		for (int i = 0; i < this.maxLevel; i++) {
+			this.head.set(i, this.tail);
 		}
 		return;
 	}
@@ -344,50 +344,6 @@ public final class LazyVersionedSkipList implements CompositionalIntSet {
 	public Object putIfAbsent(int x, int y) {
 		// TODO
 		return null;
-	}
-
-	private static final class Node {
-		private static final int VERSION_BIT_MASK = -2;
-
-		private final AtomicInteger lock = new AtomicInteger(0);
-		final int key;
-		final Node[] next;
-		volatile boolean marked = false;
-		volatile boolean fullyLinked = false;
-		private int topLevel;
-
-		public Node(final int value, int height) {
-			key = value;
-			next = new Node[height + 1];
-			topLevel = height;
-		}
-
-		public int getVersion() {
-			return (lock.get() & VERSION_BIT_MASK);
-		}
-
-		public boolean tryLockAtVersion(int version) {
-			return lock.compareAndSet(version, version + 1);
-		}
-
-		public void spinlock() {
-			int version = getVersion();
-			while (!lock.compareAndSet(version, version + 1)) {
-				version = getVersion();
-			}
-		}
-
-		public void unlockAndIncrementVersion() {
-			lock.incrementAndGet();
-		}
-
-		public void unlock() {
-			lock.decrementAndGet();
-		}
-
-		public void resetLocks() {
-			lock.set(0);
-		}
 	}
 
 }

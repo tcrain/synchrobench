@@ -1,30 +1,30 @@
-package skiplists.versioned;
+package skiplists.versioned.tower;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
-public class Tower2 {
+public class Tower2Old2 {
     public final int val;
 
-    public final Tower2[] nexts;
+    public final Tower2Old2[] nexts;
 
-    //public final int height;
+    public volatile int height = 0;
 
     /* 0 = being inserted, 1 = valid, 2 = being deleted */
     public volatile int status = 0;
 
     private volatile int lock;
     
-    private final static AtomicIntegerFieldUpdater<Tower2>
+    private final static AtomicIntegerFieldUpdater<Tower2Old2>
     	atomicIntegerFieldUpdater = AtomicIntegerFieldUpdater.newUpdater(
-            Tower2.class, "lock" );
+            Tower2Old2.class, "lock" );
 
     private static final int VERSION_BIT_MASK = -2;
 
-    public Tower2(int val, int maxHeight, int height) {
+    public Tower2Old2(int val, int maxHeight, int height) {
         this.val = val;
-        this.nexts = new Tower2[height];
+        this.nexts = new Tower2Old2[height];
         atomicIntegerFieldUpdater.set(this, 0);
-        //this.height = height;
+        this.height = height;
     }
     
 

@@ -1,4 +1,4 @@
-package skiplists.versioned;
+package skiplists.versioned.tower;
 
 import java.lang.reflect.Field;
 
@@ -41,7 +41,6 @@ public class Tower2Old {
         }
     }
     
-    @SuppressWarnings("restriction")
     private static Unsafe getUnsafe() {
         try {
 

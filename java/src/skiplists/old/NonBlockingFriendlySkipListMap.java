@@ -1,4 +1,4 @@
-package skiplists.lockfree;
+package skiplists.old;
 
 import java.util.AbstractCollection;
 import java.util.AbstractMap;

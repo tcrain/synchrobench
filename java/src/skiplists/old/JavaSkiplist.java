@@ -33,7 +33,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-package skiplists.lockfree;
+package skiplists.old;
 import java.lang.reflect.Field;
 import java.util.AbstractMap;
 import java.util.ArrayList;
