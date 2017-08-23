@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dir=..
-output=${dir}/output
+output=${dir}/output test test test
 deuce="${dir}/lib/mydeuce.jar"
 agent=${dir}/lib/deuceAgent-1.3.0.jar
 bin=${dir}/bin

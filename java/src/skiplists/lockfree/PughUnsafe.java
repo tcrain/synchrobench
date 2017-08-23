@@ -16,6 +16,7 @@ public class PughUnsafe extends AbstractCompositionalIntSet {
 	private final boolean HELP;
 	private final boolean HELP_TRAVERSAL;
 	private final boolean HELP_CONTAINS_TRAVERSAL;
+	private final boolean INSERT_REMOVE;
 
 	final private ThreadLocal<TowerUnsafe[]> thdLocalPrevArray = new ThreadLocal<TowerUnsafe[]>() {
 		@Override
@@ -26,12 +27,17 @@ public class PughUnsafe extends AbstractCompositionalIntSet {
 
 	public PughUnsafe() {
 		// First and 2nd must be true to ensure non-blocking
-		this(true, true, false);
+		this(true, true, false, false);
+	}
+	
+	public PughUnsafe(boolean help, boolean helpTraversal, boolean helpContainsTraversal) {
+		this(help, helpTraversal, helpContainsTraversal, false);
 	}
 
 	public PughUnsafe(boolean help, boolean helpTraversal,
-			boolean helpContainsTraversal) {
+			boolean helpContainsTraversal, boolean insertRemove) {
 
+		INSERT_REMOVE = insertRemove;
 		HELP = help;
 		HELP_TRAVERSAL = helpTraversal;
 		HELP_CONTAINS_TRAVERSAL = helpContainsTraversal;

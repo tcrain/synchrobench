@@ -76,6 +76,10 @@ public abstract class TowerBase {
 	public Object getNext(int level) {
 		return unsafe.getObjectVolatile(array, checkedByteOffset(level));
 	}
+	
+	public Object getNextNormal(int level) {
+		return unsafe.getObject(array, checkedByteOffset(level));
+	}
 
 	public void set(int i, Object newValue) {
 		//unsafe.putObjectVolatile(array, byteOffset(i), newValue);

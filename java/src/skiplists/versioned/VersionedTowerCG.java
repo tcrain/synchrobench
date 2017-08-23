@@ -55,7 +55,7 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
 			// if(level >= TOP_LOCK) {
-			prev.getVersion();
+			//prev.getVersion();
 			// }
 			curr = (Tower2) prev.getNext(level);
 
@@ -64,7 +64,7 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
 				prev = curr;
 				curr = (Tower2) curr.getNext(level);
 				// if(level > TOP_LOCK) {
-				curr.getVersion();
+				//curr.getVersion();
 				// }
 			}
 
@@ -454,17 +454,19 @@ public class VersionedTowerCG extends AbstractCompositionalIntSet {
 
 		/* traverse down the levels of the skiplist */
 		for (int level = TOP; level >= 0; level--) {
-			if (level >= TOP_LOCK) {
-				prev.getVersion();
-			}
+			//if (level >= TOP_LOCK) {
+			//	prev.getVersion();
+			//}
 			curr = (Tower2) prev.getNext(level);
 
 			/* traverse at the current level */
 			while (curr.val < val) {
 				prev = curr;
-				curr = (Tower2) curr.getNext(level);
 				if (level > TOP_LOCK) {
-					curr.getVersion();
+					//curr.getVersion();
+					curr = (Tower2) curr.getNext(level);
+				} else {
+					curr = (Tower2) curr.getNextNormal(level);
 				}
 			}
 
