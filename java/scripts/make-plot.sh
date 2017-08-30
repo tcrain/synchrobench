@@ -17,21 +17,28 @@ Updates=$(sed -n '7p' < $1)
 
 IFS="$OldIFS"
 
-AlgNum=${#Classes[@]}
+OutFileUpdate="./results/update-$OutFile"
+OutFileThread="./results/thread-$OutFile"
+
+AlgNum=$((`echo $Classes | wc -w` + 1))
 
 for MinSize in ${Sizes[@]}
 do
+    MaxSize=$(($MinSize * 2))
     ############# Plot per thread results ############################
     for U in ${Updates[@]}
     do
 	Filename="${OutFileThread}-r${MaxSize}-u${U}--${Timestamp}"
-	gnuplot -e "filename='${Filename}'; algs='${AlgNum}'; outfile='${Filename}.png'" plot.gp
+	# Make the 2nd line not a comment
+	sed -e '2s/^.\{2\}//' ${Filename} > tmp
+	gnuplot -e "filename='tmp'; algs='${AlgNum}'; outfile='${Filename}.png'; xlab=\"Num threads\"; tit=\"${Filename}\"" plot.gp
     done
 
     ############### Plot per update ratio results ####################
     for Threads in ${ThreadNums[@]}
     do
 	Filename="${OutFileUpdate}-r${MaxSize}-t${Threads}--${Timestamp}"
-	gnuplot -e "filename='${Filename}'; algs='${AlgNum}'; outfile='${Filename}.png'" plot.gp
+	sed -e '2s/^.\{2\}//' ${Filename} > tmp
+	gnuplot -e "filename='tmp'; algs='${AlgNum}'; outfile='${Filename}.png'; xlab=\"Update\"; tit=\"${Filename}\"" plot.gp
     done
 done

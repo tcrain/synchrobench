@@ -31,30 +31,26 @@ public class Tower2 extends TowerBase {
 	}
 
 	public boolean tryLockAtVersion(int version) {
-		return atomicIntegerFieldUpdater.compareAndSet(this, version,
-				version + 1);
+		return atomicIntegerFieldUpdater.compareAndSet(this, version, version + 1);
 	}
 
 	public boolean spinlock() {
 		int version = getVersion();
-		while (!atomicIntegerFieldUpdater.compareAndSet(this, version,
-				version + 1)) {
+		while (!atomicIntegerFieldUpdater.compareAndSet(this, version, version + 1)) {
 			version = getVersion();
 		}
 		return true;
 	}
 
 	public void unlockAndIncrementVersion() {
-		atomicIntegerFieldUpdater.set(this,
-				atomicIntegerFieldUpdater.get(this) + 1);
+		atomicIntegerFieldUpdater.set(this, lock + 1);
 	}
 
 	public void unlock() {
-		atomicIntegerFieldUpdater.set(this,
-				atomicIntegerFieldUpdater.get(this) - 1);
+		atomicIntegerFieldUpdater.set(this, lock - 1);
 	}
 
 	public void resetLocks() {
-		atomicIntegerFieldUpdater.set(this, 0);
+		lock = 0;
 	}
 }

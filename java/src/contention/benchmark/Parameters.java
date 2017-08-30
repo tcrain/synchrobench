@@ -17,6 +17,9 @@ public class Parameters {
 	size = 1024,
 	warmUp = 5,
     	iterations = 1;
+    public static boolean pareto = false;
+    
+    public static int[] rndArray = null;
     
     public static boolean detailedStats = true;
 

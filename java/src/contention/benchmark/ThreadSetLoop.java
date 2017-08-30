@@ -1,8 +1,6 @@
 package contention.benchmark;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
 
@@ -10,8 +8,7 @@ import contention.abstractions.CompositionalIntSet;
 import contention.abstractions.CompositionalMap;
 
 /**
- * The loop executed by each thread of the integer set 
- * benchmark.
+ * The loop executed by each thread of the integer set benchmark.
  * 
  * @author Vincent Gramoli
  * 
@@ -47,11 +44,15 @@ public class ThreadSetLoop implements Runnable {
 	public long nodesTraversed;
 	public long structMods;
 
+	final boolean pareto;
+	final int[] rndArray;
+	final double a = 1;
+	final double h, ha, na;
+
 	/**
 	 * The distribution of methods as an array of percentiles
 	 * 
-	 * 0%        cdf[0]        cdf[2]                     100%
-	 * |--writeAll--|--writeSome--|--readAll--|--readSome--|
+	 * 0% cdf[0] cdf[2] 100% |--writeAll--|--writeSome--|--readAll--|--readSome--|
 	 * |-----------write----------|--readAll--|--readSome--| cdf[1]
 	 */
 	int[] cdf = new int[3];
@@ -65,6 +66,25 @@ public class ThreadSetLoop implements Runnable {
 		cdf[0] = 10 * Parameters.numWriteAlls;
 		cdf[1] = 10 * Parameters.numWrites;
 		cdf[2] = cdf[1] + 10 * Parameters.numSnapshots;
+		this.pareto = Parameters.pareto;
+		this.rndArray = Parameters.rndArray;
+		this.h = Parameters.range + 1;
+		this.ha = Math.pow(h, a);
+		this.na = -1/a;
+	}
+
+	int nextInt(int range) {
+		if (pareto) {
+			double u = rand.nextDouble();
+			while (u == 0) {
+				u = rand.nextDouble();
+			}
+			int next = (int) Math.pow(-(u * ha - u - ha) / ha, na);
+			//System.out.println("Next int:" + rndArray[next-1]);
+			return rndArray[next - 1];
+		} else {
+			return rand.nextInt(range);
+		}
 	}
 
 	public void stopThread() {
@@ -77,8 +97,10 @@ public class ThreadSetLoop implements Runnable {
 
 	public void run() {
 
+		int range = Parameters.range;
 		while (!stop) {
-			Integer newInt = rand.nextInt(Parameters.range);
+			// Integer newInt = rand.nextInt(Parameters.range);
+			Integer newInt = nextInt(range);
 			int coin = rand.nextInt(1000);
 			if (coin < cdf[0]) { // 1. should we run a writeAll operation?
 
@@ -87,11 +109,13 @@ public class ThreadSetLoop implements Runnable {
 				vec.add(newInt / 2); // accepts duplicate
 
 				try {
-				  if (bench.removeAll(vec))
-					  numRemoveAll++; 
-				  else failures++; 
+					if (bench.removeAll(vec))
+						numRemoveAll++;
+					else
+						failures++;
 				} catch (Exception e) {
-					System.err.println("Unsupported writeAll operations! Leave the default value of the numWriteAlls parameter (0).");
+					System.err.println(
+							"Unsupported writeAll operations! Leave the default value of the numWriteAlls parameter (0).");
 				}
 
 			} else if (coin < cdf[1]) { // 2. should we run a writeSome
@@ -124,8 +148,7 @@ public class ThreadSetLoop implements Runnable {
 			}
 			total++;
 
-			assert total == failures + numContains + numSize + numRemove
-					+ numAdd + numRemoveAll + numAddAll;
+			assert total == failures + numContains + numSize + numRemove + numAdd + numRemoveAll + numAddAll;
 		}
 		this.getCount = CompositionalMap.counts.get().getCount;
 		this.nodesTraversed = CompositionalMap.counts.get().nodesTraversed;

@@ -13,6 +13,14 @@ Jars=$(sed -n '3p' < $1)
 Sizes=$(sed -n '4p' < $1)
 ThreadNums=$(sed -n '5p' < $1)
 Updates=$(sed -n '7p' < $1)
+Pareto=`sed -n '8p' < $1`
+
+if [ $Pareto ]
+then
+    Pareto="-p"
+else
+    Pareto=""
+fi
 
 IFS="$OldIFS"
 
@@ -31,6 +39,7 @@ echo "# Jars: $Jars" | tee -a "$Log"
 echo "# Sizes: $Sizes" | tee -a "$Log"
 echo "# Thread nums: $ThreadNums" | tee -a "$Log"
 echo "# Updates: $Updates" | tee -a "$Log"
+echo "# Pareto: $Pareto" | tee -a "$Log"
 echo "# Iterations: $Runs" | tee -a "$Log"
 echo "# Outfile: $OutFile" | tee -a "$Log"
 echo "# Log: $Log" | tee -a "$Log"
@@ -47,7 +56,7 @@ do
     ############# Setup thread info results file ############################
     for U in ${Updates[@]}
     do
-	echo "# -i $MinSize -r $MaxSize -t $Threads -runs $Runs" >> "${OutFileThread}-r${MaxSize}-u${U}--${Timestamp}"
+	echo "# $Pareto -i $MinSize -r $MaxSize -t $Threads -runs $Runs" >> "${OutFileThread}-r${MaxSize}-u${U}--${Timestamp}"
 	echo -ne "# num_threads\t" >> "${OutFileThread}-r${MaxSize}-u${U}--${Timestamp}"
 	for Jar in ${Jars[@]}
 	do
@@ -73,7 +82,7 @@ do
     for Threads in ${ThreadNums[@]}
     do
 	line=$((line + 1))
-	echo "# -i $MinSize -r $MaxSize -t $Threads -runs $Runs" >> "${OutFileUpdate}-r${MaxSize}-t${Threads}--${Timestamp}"
+	echo "# $Pareto -i $MinSize -r $MaxSize -t $Threads -runs $Runs" >> "${OutFileUpdate}-r${MaxSize}-t${Threads}--${Timestamp}"
 	echo -ne "# update_percent\t" >> "${OutFileUpdate}-r${MaxSize}-t${Threads}--${Timestamp}"
 	for Jar in ${Jars[@]}
 	do
@@ -97,9 +106,11 @@ do
 		    Total=0
 		    for i in $(seq 1 $Runs)
 		    do
-			java -jar $Jar -b $Class -i $MinSize -r $MaxSize -t $Threads -u $U | tee tmp.txt >> "$Log"
+			echo "java -jar $Jar $Pareto -b $Class -i $MinSize -r $MaxSize -t $Threads -u $U" | tee tmp.txt >> "$Log"
+			java -jar $Jar $Pareto -b $Class -i $MinSize -r $MaxSize -t $Threads -u $U | tee tmp.txt >> "$Log"
 			Value=`awk '/Throughput/{print $3}' tmp.txt`
 			Value=`echo ${Value} | sed -e 's/[eE]+*/\\*10\\^/'`
+			echo $Value | bc >> "${OutFileUpdate}-vals-${Class}-r${MaxSize}-t${Threads}-u${U}--${Timestamp}"
 			Total=`echo ${Value} + ${Total} | bc`
 		    done
 		    Avg=`echo ${Total} / ${Runs} | bc`

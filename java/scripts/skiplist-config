@@ -1,0 +1,8 @@
+skiplists.versioned.VersionedTower2 skiplists.versioned.VersionedTowerCG skiplists.versioned.LazyVersionedSkipList skiplists.versioned.OptikSkipList1 skiplists.versioned.PughVersioned skiplists.lockbased.LazySkipList skiplists.lockbased.Pugh skiplists.lockbased.PughCG skiplists.lockfree.JavaIntSkipList skiplists.lockfree.PughBlocking skiplists.lockfree.PughHelpTraversal skiplists.lockfree.PughStatus skiplists.lockfree.PughUnsafe
+5
+bench/versioned.jar
+50000 100000 200000
+64 32 16 8 4 2
+skiplist-output
+0 10 20 50 100
+true
